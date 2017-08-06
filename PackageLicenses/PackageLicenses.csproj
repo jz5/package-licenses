@@ -11,7 +11,10 @@
 * Download license text from GtiHub</Description>
     <PackageTags>NuGet License GitHub</PackageTags>
     <SignAssembly>True</SignAssembly>
-    <AssemblyOriginatorKeyFile>Key.pfx</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>Key.snk</AssemblyOriginatorKeyFile>
+    <PackageProjectUrl>https://github.com/jz5/package-licenses</PackageProjectUrl>
+    <Copyright>Copyright (c) 2017 jz5</Copyright>
+    <PackageLicenseUrl>https://raw.githubusercontent.com/jz5/package-licenses/master/LICENSE</PackageLicenseUrl>
   </PropertyGroup>
 
   <ItemGroup>
