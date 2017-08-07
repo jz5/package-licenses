@@ -97,7 +97,7 @@ namespace PackageLicenses.Sample
                 ++row;
             }
 
-            book.SaveAs("PackageLicenses.xlsx");
+            book.SaveAs("Licenses.xlsx");
         }
     }
 }

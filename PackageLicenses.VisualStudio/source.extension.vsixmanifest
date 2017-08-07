@@ -1,12 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="PackageLicenses.VisualStudio" Version="1.0" Language="en-US" Publisher="jz5" />
+    <Identity Id="PackageLicenses.VisualStudio" Version="1.0.2" Language="en-US" Publisher="jz5" />
     <DisplayName>Package Licenses</DisplayName>
     <Description xml:space="preserve">List license of NuGet packages in 'packages' folder of a solution.
-
-* Infer license from projectUrl and licenseUrl in the package's metadata
-* Download license text from GtiHub</Description>
+Infer license from projectUrl and licenseUrl in the package's metadata.
+Download license text from GtiHub and spdx.org.</Description>
+    <MoreInfo>https://marketplace.visualstudio.com/items?itemName=jz5.PackageLicenses</MoreInfo>
     <Icon>Resources\Package.png</Icon>
     <Tags>NuGet;License;GitHub</Tags>
   </Metadata>

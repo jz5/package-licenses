@@ -40,6 +40,11 @@ namespace PackageLicenses
             LoadLicenses(json);
         }
 
+        /// <summary>
+        /// Download licenses from spdx.org
+        /// </summary>
+        /// <param name="log"></param>
+        /// <returns></returns>
         public static async Task<IEnumerable<License>> GetLicencesAsync(ILogger log = null)
         {
             var url = "https://spdx.org/licenses/licenses.json";
@@ -51,6 +56,7 @@ namespace PackageLicenses
                     if (res.IsSuccessStatusCode)
                     {
                         var json = await res.Content.ReadAsStringAsync();
+                        ClearCaches();
                         LoadLicenses(json);
                     }
                     else
@@ -67,6 +73,10 @@ namespace PackageLicenses
             return _licenses?.Values.ToList() ?? new List<License>();
         }
 
+        /// <summary>
+        /// Parse licenses.json
+        /// </summary>
+        /// <param name="json"></param>
         private static void LoadLicenses(string json)
         {
             var o = JObject.Parse(json);
@@ -119,6 +129,12 @@ namespace PackageLicenses
             _urlLicenses = null;
         }
 
+        /// <summary>
+        /// Downloade license text from DownloadUri property
+        /// </summary>
+        /// <param name="license"></param>
+        /// <param name="log"></param>
+        /// <returns></returns>
         public static async Task FillTextAsync(this License license, ILogger log = null)
         {
             if (license?.DownloadUri == null) return;
@@ -147,6 +163,12 @@ namespace PackageLicenses
             }
         }
 
+        /// <summary>
+        /// Infer license from URL
+        /// </summary>
+        /// <param name="uri"></param>
+        /// <param name="log"></param>
+        /// <returns></returns>
         public static async Task<License> GetLicenseAsync(this Uri uri, ILogger log = null)
         {
             if (_licenses == null)
@@ -166,12 +188,13 @@ namespace PackageLicenses
             }
 
             // opensource.org url
-            if (uri.Host == "opensource.org")
+            if (uri.Host == "opensource.org" || uri.Host == "www.opensource.org")
             {
-                var m = Regex.Match(uri.AbsolutePath.ToLower(), @"^/licenses/(?<id>.*?)(\.html)?/?$", RegexOptions.IgnoreCase);
+                var m = Regex.Match(uri.AbsolutePath.ToLower(), @"^/licenses/(?<id>.*?)(\.html|\.php)?/?$", RegexOptions.IgnoreCase);
                 if (m.Success)
                 {
                     var id = m.Groups["id"].Value;
+                    if (id == "mit-license") id = "mit";
                     if (!_lowerCaseKeyLicenses.ContainsKey(id))
                     {
                         log?.LogWarning("Unknown ID ({id})");
@@ -193,15 +216,35 @@ namespace PackageLicenses
 
         private static async Task<License> GetFromGithubAsync(Uri uri, ILogger log = null)
         {
+            if (uri.Host == "raw.github.com") // old format
+                uri = new Uri(uri.ToString().Replace("raw.github.com", "raw.githubusercontent.com"));
+
+            // redirect url
+            if (uri.Host == "go.microsoft.com")
+            {
+                var handler = new HttpClientHandler()
+                {
+                    AllowAutoRedirect = false
+                };
+                using (var client = new HttpClient(handler))
+                {
+                    var result = await client.GetAsync(uri);
+                    var location = result.Headers.Location;
+                    if (location != null && (location.Host == "github.com" || location.Host == "raw.githubusercontent.com"))
+                        uri = location;
+                    else
+                        return null;
+                }
+            }
+
+            // cache
             if (_caches.ContainsKey($"{uri}"))
                 return _caches[$"{uri}"];
 
+            //
             string owner;
             string repo;
             Uri downloadUri = null;
-
-            if (uri.Host == "raw.github.com") // old format
-                uri = new Uri(uri.ToString().Replace("raw.github.com", "raw.githubusercontent.com"));
 
             if (uri.Host == "raw.githubusercontent.com")
             {

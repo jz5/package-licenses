@@ -7,14 +7,16 @@
     <Product>Package Licenses</Product>
     <Description>Get license of NuGet packages in 'packages' folder of a solution.
 
-* Infer license from projectUrl and licenseUrl in the package's metadata
-* Download license text from GtiHub</Description>
+Infer license from projectUrl and licenseUrl in the package's metadata.
+Download license text from GtiHub and  spdx.org.</Description>
     <PackageTags>NuGet License GitHub</PackageTags>
     <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>Key.snk</AssemblyOriginatorKeyFile>
     <PackageProjectUrl>https://github.com/jz5/package-licenses</PackageProjectUrl>
     <Copyright>Copyright (c) 2017 jz5</Copyright>
     <PackageLicenseUrl>https://raw.githubusercontent.com/jz5/package-licenses/master/LICENSE</PackageLicenseUrl>
+    <PackageIconUrl>https://raw.githubusercontent.com/jz5/package-licenses/master/Resources/Package.png</PackageIconUrl>
+    <Version>1.0.1-beta</Version>
   </PropertyGroup>
 
   <ItemGroup>

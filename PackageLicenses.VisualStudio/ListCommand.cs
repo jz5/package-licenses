@@ -102,10 +102,14 @@ namespace PackageLicenses.VisualStudio
                 var tempPath = Path.Combine(Path.GetTempPath(), $"{Path.GetFileName(solutionDir)}-{DateTime.Now.ToFileTimeUtc()}");
                 Directory.CreateDirectory(tempPath);
 
-                await ListAsync(solutionDir, tempPath);
+                // List
+                var result = await TryListAsync(solutionDir, tempPath);
 
                 // Open folder
-                System.Diagnostics.Process.Start(tempPath);
+                if (result)
+                    System.Diagnostics.Process.Start(tempPath);
+                else
+                    Directory.Delete(tempPath, true);
             }
             catch (Exception ex)
             {
@@ -117,19 +121,19 @@ namespace PackageLicenses.VisualStudio
             }
         }
 
-        private async System.Threading.Tasks.Task ListAsync(string solutionPath, string saveFolderPath)
+        private List<string> _headers = new List<string>() { "Id", "Version", "Authors", "Title", "ProjectUrl", "LicenseUrl", "RequireLicenseAcceptance", "Copyright", "Inferred License ID", "Inferred License Name", "Downloaded license text file" };
+
+        private async System.Threading.Tasks.Task<bool> TryListAsync(string solutionPath, string saveFolderPath)
         {
             var root = Path.Combine(solutionPath, "packages");
             if (!Directory.Exists(root))
             {
                 ServiceProvider.WriteOnOutputWindow($"Not Found: '{root}'\n");
-                return;
+                return false;
             }
-            else
-            {
-                ServiceProvider.WriteOnOutputWindow($"Packages Path: '{root}'\n");
-            }
+            ServiceProvider.WriteOnOutputWindow($"Packages Path: '{root}'\n");
 
+            // Get GitHub Client ID and Client Secret
             var query = Environment.GetEnvironmentVariable("PACKAGE-LICENSES-GITHUB-QUERY", EnvironmentVariableTarget.User);
             if (!string.IsNullOrWhiteSpace(query))
             {
@@ -141,15 +145,19 @@ namespace PackageLicenses.VisualStudio
                 }
             }
 
+            // Get packages
             var packages = PackageLicensesUtility.GetPackages(root, Logger.Instance);
 
             if (packages.Count() == 0)
             {
-                ServiceProvider.WriteOnOutputWindow($"No Packages");
-                return;
+                ServiceProvider.WriteOnOutputWindow($"No Packages\n");
+                return false;
             }
 
-            ServiceProvider.WriteOnOutputWindow($"Id\tVersion\tAuthors\tTitle\tProjectUrl\tLicenseUrl\tRequireLicenseAcceptance\tCopyright\tInferred License ID\tInferred License Name\n");
+            // Output metadata and get licenses
+            var headers = string.Join("\t", _headers.Take(_headers.Count - 1));
+            var dividers = string.Join("\t", _headers.Take(_headers.Count - 1).Select(i => new string('-', i.Length)));
+            ServiceProvider.WriteOnOutputWindow($"\n{headers}\n{dividers}\n");
 
             var list = new List<(LocalPackageInfo, License)>();
             foreach (var p in packages)
@@ -160,21 +168,24 @@ namespace PackageLicenses.VisualStudio
 
                 list.Add((p, license));
             }
+            ServiceProvider.WriteOnOutputWindow($"\n");
 
+            // Save to files
             CreateFiles(list, saveFolderPath);
-            ServiceProvider.WriteOnOutputWindow($"Saved to '{saveFolderPath}'.");
+            ServiceProvider.WriteOnOutputWindow($"Saved to '{saveFolderPath}'\n");
+
+            return true;
         }
 
-        private static void CreateFiles(List<(LocalPackageInfo, License)> list, string saveFolderPath)
+        private void CreateFiles(List<(LocalPackageInfo, License)> list, string saveFolderPath)
         {
             var book = new XLWorkbook();
             var sheet = book.Worksheets.Add("Packages");
 
             // header
-            var headers = new[] { "Id", "Version", "Authors", "Title", "ProjectUrl", "LicenseUrl", "RequireLicenseAcceptance", "Copyright", "Inferred License ID", "Inferred License Name", "Downloaded license text file" };
-            for (var i = 0; i < headers.Length; i++)
+            for (var i = 0; i < _headers.Count; i++)
             {
-                sheet.Cell(1, 1 + i).SetValue(headers[i]).Style.Font.SetBold();
+                sheet.Cell(1, 1 + i).SetValue(_headers[i]).Style.Font.SetBold();
             }
 
             // values
@@ -221,26 +232,8 @@ namespace PackageLicenses.VisualStudio
                 ++row;
             }
 
-            book.SaveAs(Path.Combine(saveFolderPath, "PackageLicenses.xlsx"));
+            book.SaveAs(Path.Combine(saveFolderPath, "Licenses.xlsx"));
         }
-
-        //private void WriteLine(string text) => Write(text + "\n");
-        //private void Write(string text)
-        //{
-        //    var outWindow = Package.GetGlobalService(typeof(SVsOutputWindow)) as IVsOutputWindow;
-        //    if (outWindow == null) return;
-
-        //    var customGuid = new Guid("50fb82b5-2ee3-401d-8fbe-155c80d83772");
-        //    var customTitle = "Package Licenses";
-        //    outWindow.CreatePane(ref customGuid, customTitle, 1, 1);
-
-        //    outWindow.GetPane(ref customGuid, out var customPane);
-        //    if (customPane != null)
-        //    {
-        //        customPane.OutputStringThreadSafe(text);
-        //        customPane.Activate(); // Brings this pane into view
-        //    }
-        //}
     }
 
     internal class Logger : ILogger
