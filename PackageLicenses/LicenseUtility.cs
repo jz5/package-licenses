@@ -177,6 +177,9 @@ namespace PackageLicenses
                 if (!results.Any()) return null;
             }
 
+            // redirect url
+            uri = await GetLocationAsync(uri) ?? uri;
+
             // known license url
             if (_urlLicenses.ContainsKey($"{uri}"))
             {
@@ -187,55 +190,190 @@ namespace PackageLicenses
                 return license.Clone();
             }
 
-            // opensource.org url
-            if (uri.Host == "opensource.org" || uri.Host == "www.opensource.org")
+            // gnu.org
+            else if (uri.Host == "gnu.org" || uri.Host == "www.gnu.org")
             {
-                var m = Regex.Match(uri.AbsolutePath.ToLower(), @"^/licenses/(?<id>.*?)(\.html|\.php)?/?$", RegexOptions.IgnoreCase);
-                if (m.Success)
+                var m1 = Regex.Match(uri.AbsolutePath.ToLower(), @"^/licenses/(?<id>[a-z0-9\-\.]*?)(\.[a-z\-]+?)?(\.html|\.txt)?/?$", RegexOptions.IgnoreCase);
+                if (m1.Success)
                 {
-                    var id = m.Groups["id"].Value;
-                    if (id == "mit-license") id = "mit";
-                    if (!_lowerCaseKeyLicenses.ContainsKey(id))
+                    var aliases = new Dictionary<string, string>()
                     {
-                        log?.LogWarning("Unknown ID ({id})");
-                        return null;
-                    }
-                    var license = _lowerCaseKeyLicenses[id];
-                    if (license.Text == null)
-                        await license.FillTextAsync(log);
+                        {"gpl", "gpl-3.0"},
+                        {"lgpl", "lgpl-3.0"},
+                        {"agpl", "agpl-3.0"},
+                    };
+                    var id = m1.Groups["id"].Value;
+                    if (aliases.ContainsKey(id))
+                        id = aliases[id];
 
-                    return license.Clone();
+                    return await Result(id);
+                }
+
+                var m2 = Regex.Match(uri.AbsolutePath.ToLower(), @"^/copyleft/(?<id>[a-z]*?)(\.html|\.txt)?/?$", RegexOptions.IgnoreCase);
+                if (m2.Success)
+                {
+                    var aliases = new Dictionary<string, string>()
+                    {
+                        {"gpl", "gpl-3.0"},
+                        {"lgpl", "lgpl-3.0"},
+                        {"lesser", "lgpl-3.0"},
+                    };
+                    var id = m2.Groups["id"].Value;
+                    if (aliases.ContainsKey(id))
+                        id = aliases[id];
+
+                    return await Result(id);
+                }
+                return null;
+            }
+
+            // apache.org
+            else if (uri.Host == "apache.org" || uri.Host == "www.apache.org")
+            {
+                var m = Regex.Match(uri.AbsolutePath.ToLower(), @"^/licenses/(?<ver>.*?)(\.html|\.txt)?/?$", RegexOptions.IgnoreCase);
+                if (!m.Success) return null;
+
+                var versions = new Dictionary<string, string>()
+                {
+                    {"license-2.0", "apache-2.0"},
+                    {"license-1.1", "apache-1.1"},
+                    {"license-1.0", "apache-1.0"},
+                };
+
+                var ver = m.Groups["ver"].Value;
+                if (versions.ContainsKey(ver))
+                {
+                    return await Result(versions[ver]);
+                }
+                else
+                {
+                    log?.LogWarning($"Unknown license version ({ver})");
+                    return null;
                 }
             }
+
+            // opensource.org
+            else if (uri.Host == "opensource.org" || uri.Host == "www.opensource.org")
+            {
+                var m = Regex.Match(uri.AbsolutePath.ToLower(), @"^/licenses/(?<id>.*?)(\.html|\.php)?/?$", RegexOptions.IgnoreCase);
+                if (!m.Success) return null;
+
+                var aliases = new Dictionary<string, string>()
+                {
+                    {"mit-license", "mit"},
+                    {"bsd-license", "bsd-2-clause"},
+                    {"isc-license", "isc"},
+                    {"apache2.0", "apache-2.0"},
+                    {"cddl1", "cddl-1.0"},
+                    {"cpl1.0", "cpl-1.0"},
+                    {"eclipse-1.0", "epl-1.0"},
+                    {"rpl1.5", "rpl-1.5"},
+                };
+
+                var id = m.Groups["id"].Value;
+                if (aliases.ContainsKey(id))
+                    id = aliases[id];
+
+                return await Result(id);
+            }
+
+            // creativecommons.org
+            else if (uri.Host == "creativecommons.org" || uri.Host == "www.creativecommons.org")
+            {
+                var paths = new Dictionary<string, string>()
+                {
+                    {"/licenses/by/1.0/", "cc-by-1.0"},
+                    {"/licenses/by/2.0/", "cc-by-2.0"},
+                    {"/licenses/by/2.5/", "cc-by-2.5"},
+                    {"/licenses/by/3.0/", "cc-by-3.0"},
+                    {"/licenses/by/4.0/", "cc-by-4.0"},
+                    {"/licenses/by-nd/1.0/", "cc-by-nd-1.0"},
+                    {"/licenses/by-nd/2.0/", "cc-by-nd-2.0"},
+                    {"/licenses/by-nd/2.5/", "cc-by-nd-2.5"},
+                    {"/licenses/by-nd/3.0/", "cc-by-nd-3.0"},
+                    {"/licenses/by-nd/4.0/", "cc-by-nd-4.0"},
+                    {"/licenses/by-nc/1.0/", "cc-by-nc-1.0"},
+                    {"/licenses/by-nc/2.0/", "cc-by-nc-2.0"},
+                    {"/licenses/by-nc/2.5/", "cc-by-nc-2.5"},
+                    {"/licenses/by-nc/3.0/", "cc-by-nc-3.0"},
+                    {"/licenses/by-nc/4.0/", "cc-by-nc-4.0"},
+                    {"/licenses/by-nd-nc/1.0/", "cc-by-nc-nd-1.0"},
+                    {"/licenses/by-nd-nc/2.0/", "cc-by-nc-nd-2.0"},
+                    {"/licenses/by-nd-nc/2.5/", "cc-by-nc-nd-2.5"},
+                    {"/licenses/by-nd-nc/3.0/", "cc-by-nc-nd-3.0"},
+                    {"/licenses/by-nd-nc/4.0/", "cc-by-nc-nd-4.0"},
+                    {"/licenses/by-nc-sa/1.0/", "cc-by-nc-sa-1.0"},
+                    {"/licenses/by-nc-sa/2.0/", "cc-by-nc-sa-2.0"},
+                    {"/licenses/by-nc-sa/2.5/", "cc-by-nc-sa-2.5"},
+                    {"/licenses/by-nc-sa/3.0/", "cc-by-nc-sa-3.0"},
+                    {"/licenses/by-nc-sa/4.0/", "cc-by-nc-sa-4.0"},
+                    {"/licenses/by-sa/1.0/", "cc-by-sa-1.0"},
+                    {"/licenses/by-sa/2.0/", "cc-by-sa-2.0"},
+                    {"/licenses/by-sa/2.5/", "cc-by-sa-2.5"},
+                    {"/licenses/by-sa/3.0/", "cc-by-sa-3.0"},
+                    {"/licenses/by-sa/4.0/", "cc-by-sa-4.0"},
+                    {"/publicdomain/zero/1.0/", "cc0-1.0"},
+                };
+
+                if (paths.ContainsKey(uri.PathAndQuery))
+                {
+                    var id = paths[uri.PathAndQuery];
+                    return await Result(id);
+                }
+                return null;
+            }
+
             else
             {
                 return await GetFromGithubAsync(uri, log);
             }
-            return null;
+
+            async Task<License> Result(string id)
+            {
+                if (!_lowerCaseKeyLicenses.ContainsKey(id))
+                {
+                    log?.LogWarning($"Unknown ID ({id})");
+                    return null;
+                }
+
+                var license = _lowerCaseKeyLicenses[id];
+                if (license.Text == null)
+                    await license.FillTextAsync(log);
+
+                return license.Clone();
+            }
+        }
+
+        private static async Task<Uri> GetLocationAsync(Uri uri)
+        {
+            // redirect url
+            var hosts = new string[]
+            {
+                "go.microsoft.com",
+                "aka.ms",
+            };
+
+            if (!hosts.Contains(uri.Host)) return null;
+
+            var handler = new HttpClientHandler()
+            {
+                AllowAutoRedirect = false
+            };
+            using (var client = new HttpClient(handler))
+            {
+                var result = await client.GetAsync(uri);
+                var location = result.Headers.Location;
+
+                return location != null && hosts.Contains(location.Host) ?
+                    await GetLocationAsync(location) :
+                    location;
+            }
         }
 
         private static async Task<License> GetFromGithubAsync(Uri uri, ILogger log = null)
         {
             if (uri.Host == "raw.github.com") // old format
                 uri = new Uri(uri.ToString().Replace("raw.github.com", "raw.githubusercontent.com"));
-
-            // redirect url
-            if (uri.Host == "go.microsoft.com")
-            {
-                var handler = new HttpClientHandler()
-                {
-                    AllowAutoRedirect = false
-                };
-                using (var client = new HttpClient(handler))
-                {
-                    var result = await client.GetAsync(uri);
-                    var location = result.Headers.Location;
-                    if (location != null && (location.Host == "github.com" || location.Host == "raw.githubusercontent.com"))
-                        uri = location;
-                    else
-                        return null;
-                }
-            }
 
             // cache
             if (_caches.ContainsKey($"{uri}"))
@@ -249,7 +387,7 @@ namespace PackageLicenses
             if (uri.Host == "raw.githubusercontent.com")
             {
                 var dirs = uri.AbsolutePath.Split('/');
-                if (dirs.Length < 2)
+                if (dirs.Length < 3)
                     return null;
 
                 owner = dirs[1];
@@ -259,13 +397,13 @@ namespace PackageLicenses
             else if (uri.Host == "github.com")
             {
                 var dirs = uri.AbsolutePath.Split('/');
-                if (dirs.Length < 2)
+                if (dirs.Length < 3)
                     return null;
 
                 owner = dirs[1];
                 repo = dirs[2];
 
-                if (dirs.Length > 3) // Path: '/{owner}/{repo}/blob/{branch}/{file}'
+                if (dirs.Length > 4) // Path: '/{owner}/{repo}/blob/{branch}/{file}'
                     downloadUri = uri;
             }
             else
