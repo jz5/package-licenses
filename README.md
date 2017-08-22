@@ -13,7 +13,7 @@ https://visualstudiogallery.msdn.microsoft.com/c96e3ebf-3796-48f7-81ed-8c9ea5272
 
 ## NuGet
 
-https://preview.nuget.org/packages/PackageLicenses
+https://www.nuget.org/packages/PackageLicenses
 
 ## Library Licenses
 
