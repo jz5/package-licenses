@@ -260,3 +260,4 @@ paket-files/
 __pycache__/
 *.pyc
 PackageLicenses.VisualStudio/Resources/Thumbs.db
+/codealike.json

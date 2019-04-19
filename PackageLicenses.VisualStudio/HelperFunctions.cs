@@ -20,6 +20,8 @@ namespace PackageLicenses.VisualStudio
         /// <param name="text">The text to write</param>
         internal static void WriteOnOutputWindow(this IServiceProvider provider, string text)
         {
+            Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
+
             // At first write the text on the debug output.
             Debug.WriteLine(text);
 

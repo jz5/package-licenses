@@ -17,7 +17,7 @@ namespace PackageLicenses
         private static Dictionary<string, License> _licenses; // key: SPDX id
         private static Dictionary<string, License> _lowerCaseKeyLicenses; // key: lower case SPDX id
         private static Dictionary<string, License> _urlLicenses; // key: license URL
-        private static Dictionary<string, License> _caches = new Dictionary<string, License>();
+        private static readonly Dictionary<string, License> Caches = new Dictionary<string, License>();
 
         private const string UserAgent = "PackageLicenses.LicenseUtility";
 
@@ -122,7 +122,7 @@ namespace PackageLicenses
             _licenses?.Clear();
             _lowerCaseKeyLicenses?.Clear();
             _urlLicenses?.Clear();
-            _caches.Clear();
+            Caches.Clear();
 
             _licenses = null;
             _lowerCaseKeyLicenses = null;
@@ -376,8 +376,8 @@ namespace PackageLicenses
                 uri = new Uri(uri.ToString().Replace("raw.github.com", "raw.githubusercontent.com"));
 
             // cache
-            if (_caches.ContainsKey($"{uri}"))
-                return _caches[$"{uri}"];
+            if (Caches.ContainsKey($"{uri}"))
+                return Caches[$"{uri}"];
 
             //
             string owner;
@@ -492,7 +492,7 @@ namespace PackageLicenses
                     };
 
                     if (!failed)
-                        _caches.Add($"{uri}", l);
+                        Caches.Add($"{uri}", l);
 
                     return l;
                 }
@@ -537,7 +537,7 @@ namespace PackageLicenses
                     };
 
                     if (!failed)
-                        _caches.Add($"{uri}", l);
+                        Caches.Add($"{uri}", l);
 
                     return l;
                 }

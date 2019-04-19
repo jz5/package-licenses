@@ -18,6 +18,7 @@ using NuGet.Protocol;
 using ClosedXML.Excel;
 using System.Linq;
 using System.Text.RegularExpressions;
+using EnvDTE80;
 
 namespace PackageLicenses.VisualStudio
 {
@@ -91,11 +92,27 @@ namespace PackageLicenses.VisualStudio
         /// <param name="e">Event args.</param>
         private async void MenuItemCallback(object sender, EventArgs e)
         {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
             var dte = (DTE)ServiceProvider.GetService(typeof(DTE));
-            var solutionDir = Path.GetDirectoryName(dte.Solution.FullName);
+            if (dte == null)
+                return;
 
             try
             {
+                var solutionDir = Path.GetDirectoryName(dte.Solution.FullName);
+                var projectDirs = new List<string>();
+
+                var item = dte.Solution.Projects.GetEnumerator();
+                while (item.MoveNext())
+                {
+                    if (!(item.Current is Project project) || project.Kind == ProjectKinds.vsProjectKindSolutionFolder)
+                        continue;
+
+                    if (Directory.Exists(project.FullName))
+                        projectDirs.Add(project.FullName);
+                }
+
                 _menuCommand.Enabled = false;
 
                 // Create temporary folder
@@ -103,7 +120,7 @@ namespace PackageLicenses.VisualStudio
                 Directory.CreateDirectory(tempPath);
 
                 // List
-                var result = await TryListAsync(solutionDir, tempPath);
+                var result = await TryListAsync(solutionDir, projectDirs, tempPath);
 
                 // Open folder
                 if (result)
@@ -121,17 +138,21 @@ namespace PackageLicenses.VisualStudio
             }
         }
 
-        private List<string> _headers = new List<string>() { "Id", "Version", "Authors", "Title", "ProjectUrl", "LicenseUrl", "RequireLicenseAcceptance", "Copyright", "Inferred License ID", "Inferred License Name", "Downloaded license text file" };
+        private readonly List<string> _headers = new List<string> { "Id", "Version", "Authors", "Title", "ProjectUrl", "LicenseUrl", "RequireLicenseAcceptance", "Copyright", "Inferred License ID", "Inferred License Name", "Downloaded license text file" };
 
-        private async System.Threading.Tasks.Task<bool> TryListAsync(string solutionPath, string saveFolderPath)
+        private async System.Threading.Tasks.Task<bool> TryListAsync(string solutionPath, List<string> projectPaths, string saveFolderPath)
         {
             var root = Path.Combine(solutionPath, "packages");
+            var hasPackagesFolder = true;
             if (!Directory.Exists(root))
             {
                 ServiceProvider.WriteOnOutputWindow($"Not Found: '{root}'\n");
-                return false;
+                hasPackagesFolder = false;
             }
-            ServiceProvider.WriteOnOutputWindow($"Packages Path: '{root}'\n");
+            if (hasPackagesFolder)
+            {
+                ServiceProvider.WriteOnOutputWindow($"Packages Path: '{root}'\n");
+            }
 
             // Get GitHub Client ID and Client Secret
             var query = Environment.GetEnvironmentVariable("PACKAGE-LICENSES-GITHUB-QUERY", EnvironmentVariableTarget.User);
@@ -146,11 +167,17 @@ namespace PackageLicenses.VisualStudio
             }
 
             // Get packages
-            var packages = PackageLicensesUtility.GetPackages(root, Logger.Instance);
+            var packages = hasPackagesFolder ? 
+                PackageLicensesUtility.GetPackages(root, Logger.Instance).ToList() : 
+                new List<LocalPackageInfo>();
 
-            if (packages.Count() == 0)
+            // Get packages from projects
+            var projectPackages = projectPaths.SelectMany(i => PackageLicensesUtility.GetPackagesFromProject(i, Logger.Instance)).ToList();
+            packages.AddRange(projectPackages);
+
+            if (!packages.Any())
             {
-                ServiceProvider.WriteOnOutputWindow($"No Packages\n");
+                ServiceProvider.WriteOnOutputWindow("No Packages\n");
                 return false;
             }
 
@@ -160,7 +187,8 @@ namespace PackageLicenses.VisualStudio
             ServiceProvider.WriteOnOutputWindow($"\n{headers}\n{dividers}\n");
 
             var list = new List<(LocalPackageInfo, License)>();
-            foreach (var p in packages)
+
+            foreach (var p in LocalFolderUtility.GetDistinctPackages(packages))
             {
                 var nuspec = p.Nuspec;
                 var license = await p.GetLicenseAsync(Logger.Instance);
@@ -168,7 +196,7 @@ namespace PackageLicenses.VisualStudio
 
                 list.Add((p, license));
             }
-            ServiceProvider.WriteOnOutputWindow($"\n");
+            ServiceProvider.WriteOnOutputWindow("\n");
 
             // Save to files
             CreateFiles(list, saveFolderPath);
@@ -240,16 +268,7 @@ namespace PackageLicenses.VisualStudio
     {
         private static Logger _instance;
 
-        public static Logger Instance
-        {
-            get
-            {
-                if (_instance == null)
-                    _instance = new Logger();
-
-                return _instance;
-            }
-        }
+        public static Logger Instance => _instance ?? (_instance = new Logger());
 
         public Action<string> Write { get; set; }
 

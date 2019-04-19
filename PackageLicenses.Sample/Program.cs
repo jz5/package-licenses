@@ -34,10 +34,19 @@ namespace PackageLicenses.Sample
     {
         static void Main(string[] args)
         {
-            Console.Write("NuGet packages path:");
+            Console.Write("NuGet packages path or project path:");
             var path = Console.ReadLine();
 
-            if (!Directory.Exists(path))
+            var isProjectPath = false;
+            if (File.Exists(path))
+            {
+                isProjectPath = true;
+            }
+            else if (Directory.Exists(path))
+            {
+                isProjectPath = false;
+            }
+            else
             {
                 Console.Write("Not Found.");
                 return;
@@ -48,7 +57,10 @@ namespace PackageLicenses.Sample
             //LicenseUtility.ClientId = "xxx";
             //LicenseUtility.ClientSecret = "xxx";
 
-            var packages = PackageLicensesUtility.GetPackages(path, log);
+            var packages = isProjectPath ?
+                PackageLicensesUtility.GetPackagesFromProject(path, log) :
+                PackageLicensesUtility.GetPackages(path, log);
+
             var list = new List<(LocalPackageInfo, License)>();
             var t = Task.Run(async () =>
             {
@@ -60,6 +72,12 @@ namespace PackageLicenses.Sample
                 }
             });
             t.Wait();
+
+            if (!list.Any())
+            {
+                Console.WriteLine("No Packages.");
+                return;
+            }
 
             CreateWorkbook(list);
             Console.WriteLine("Completed.");
